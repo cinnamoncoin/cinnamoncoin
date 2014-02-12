@@ -50,6 +50,8 @@ void OptionsModel::Init()
 
     // These are shared with core Bitcoin; we want
     // command-line options to override the GUI settings:
+    if (settings.contains("fUseUPnP"))
+        SoftSetBoolArg("-upnp", settings.value("fUseUPnP").toBool());
     if (settings.contains("addrProxy") && settings.value("fUseProxy").toBool())
         SoftSetArg("-proxy", settings.value("addrProxy").toString().toStdString());
     if (settings.contains("nSocksVersion") && settings.value("fUseProxy").toBool())
@@ -84,7 +86,7 @@ bool OptionsModel::Upgrade()
         }
     }
     QList<QString> boolOptions;
-    boolOptions << "bDisplayAddresses" << "fMinimizeToTray" << "fMinimizeOnClose" << "fUseProxy" ;
+    boolOptions << "bDisplayAddresses" << "fMinimizeToTray" << "fMinimizeOnClose" << "fUseProxy" << "fUseUPnP";
     foreach(QString key, boolOptions)
     {
         bool value = false;
@@ -136,23 +138,25 @@ QVariant OptionsModel::data(const QModelIndex & index, int role) const
             return QVariant(GUIUtil::GetStartOnSystemStartup());
         case MinimizeToTray:
             return QVariant(fMinimizeToTray);
+        case MapPortUPnP:
+            return settings.value("fUseUPnP", GetBoolArg("-upnp", true));
         case MinimizeOnClose:
             return QVariant(fMinimizeOnClose);
         case ProxyUse:
             return settings.value("fUseProxy", false);
         case ProxyIP: {
-            CService addrProxy;
-            if (GetProxy(NET_IPV4, addrProxy))
-                return QVariant(QString::fromStdString(addrProxy.ToStringIP()));
+            proxyType proxy;
+            if (GetProxy(NET_IPV4, proxy))
+                return QVariant(QString::fromStdString(proxy.first.ToStringIP()));
             else
                 return QVariant(QString::fromStdString("127.0.0.1"));
         }
         case ProxyPort: {
-            CService addrProxy;
-            if (GetProxy(NET_IPV4, addrProxy))
-                return QVariant(addrProxy.GetPort());
+            proxyType proxy;
+            if (GetProxy(NET_IPV4, proxy))
+                return QVariant(proxy.first.GetPort());
             else
-                return 9050;
+                return QVariant(9050);
         }
         case ProxySocksVersion:
             return settings.value("nSocksVersion", 5);
@@ -172,6 +176,7 @@ QVariant OptionsModel::data(const QModelIndex & index, int role) const
     }
     return QVariant();
 }
+
 bool OptionsModel::setData(const QModelIndex & index, const QVariant & value, int role)
 {
     bool successful = true; /* set to false on parse error */
@@ -187,6 +192,11 @@ bool OptionsModel::setData(const QModelIndex & index, const QVariant & value, in
             fMinimizeToTray = value.toBool();
             settings.setValue("fMinimizeToTray", fMinimizeToTray);
             break;
+        case MapPortUPnP:
+            fUseUPnP = value.toBool();
+            settings.setValue("fUseUPnP", fUseUPnP);
+            MapPort();
+            break;
         case MinimizeOnClose:
             fMinimizeOnClose = value.toBool();
             settings.setValue("fMinimizeOnClose", fMinimizeOnClose);
@@ -195,29 +205,37 @@ bool OptionsModel::setData(const QModelIndex & index, const QVariant & value, in
             settings.setValue("fUseProxy", value.toBool());
             ApplyProxySettings();
             break;
-        case ProxyIP:
-            {
-                CService addrProxy("127.0.0.1", 9050);
-                GetProxy(NET_IPV4, addrProxy);
-                CNetAddr addr(value.toString().toStdString());
-                addrProxy.SetIP(addr);
-                settings.setValue("addrProxy", addrProxy.ToStringIPPort().c_str());
-                successful = ApplyProxySettings();
-            }
-            break;
-        case ProxyPort:
-            {
-                CService addrProxy("127.0.0.1", 9050);
-                GetProxy(NET_IPV4, addrProxy);
-                addrProxy.SetPort(value.toInt());
-                settings.setValue("addrProxy", addrProxy.ToStringIPPort().c_str());
-                successful = ApplyProxySettings();
-            }
-            break;
-        case ProxySocksVersion:
-            settings.setValue("nSocksVersion", value.toInt());
-            ApplyProxySettings();
-            break;
+        case ProxyIP: {
+            proxyType proxy;
+            proxy.first = CService("127.0.0.1", 9050);
+            GetProxy(NET_IPV4, proxy);
+
+            CNetAddr addr(value.toString().toStdString());
+            proxy.first.SetIP(addr);
+            settings.setValue("addrProxy", proxy.first.ToStringIPPort().c_str());
+            successful = ApplyProxySettings();
+        }
+        break;
+        case ProxyPort: {
+            proxyType proxy;
+            proxy.first = CService("127.0.0.1", 9050);
+            GetProxy(NET_IPV4, proxy);
+
+            proxy.first.SetPort(value.toInt());
+            settings.setValue("addrProxy", proxy.first.ToStringIPPort().c_str());
+            successful = ApplyProxySettings();
+        }
+        break;
+        case ProxySocksVersion: {
+            proxyType proxy;
+            proxy.second = 5;
+            GetProxy(NET_IPV4, proxy);
+
+            proxy.second = value.toInt();
+            settings.setValue("nSocksVersion", proxy.second);
+            successful = ApplyProxySettings();
+        }
+        break;
         case Fee:
             nTransactionFee = value.toLongLong();
             settings.setValue("nTransactionFee", nTransactionFee);

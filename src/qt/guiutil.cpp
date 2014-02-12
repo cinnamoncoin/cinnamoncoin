@@ -4,7 +4,6 @@
 #include "bitcoinunits.h"
 #include "util.h"
 #include "init.h"
-#include "base58.h"
 
 #include <QString>
 #include <QDateTime>
@@ -78,12 +77,7 @@ void setupAmountWidget(QLineEdit *widget, QWidget *parent)
 
 bool parseBitcoinURI(const QUrl &uri, SendCoinsRecipient *out)
 {
-    if(uri.scheme() != QString("foocoin"))
-        return false;
-
-    // check if the address is valid
-    CBitcoinAddress addressFromUri(uri.path().toStdString());
-    if (!addressFromUri.IsValid())
+    if(uri.scheme() != QString("bitcoin"))
         return false;
 
     SendCoinsRecipient rv;
@@ -128,13 +122,13 @@ bool parseBitcoinURI(const QUrl &uri, SendCoinsRecipient *out)
 
 bool parseBitcoinURI(QString uri, SendCoinsRecipient *out)
 {
-    // Convert FooCoin:// to FooCoin:
+    // Convert bitcoin:// to bitcoin:
     //
-    //    Cannot handle this later, because foocoin:// will cause Qt to see the part after // as host,
-    //    which will lowercase it (and thus invalidate the address).
-    if(uri.startsWith("foocoin://"))
+    //    Cannot handle this later, because bitcoin:// will cause Qt to see the part after // as host,
+    //    which will lower-case it (and thus invalidate the address).
+    if(uri.startsWith("bitcoin://"))
     {
-        uri.replace(0, 11, "foocoin:");
+        uri.replace(0, 10, "bitcoin:");
     }
     QUrl uriInstance(uri);
     return parseBitcoinURI(uriInstance, out);
@@ -278,12 +272,12 @@ bool ToolTipToRichTextFilter::eventFilter(QObject *obj, QEvent *evt)
 #ifdef WIN32
 boost::filesystem::path static StartupShortcutPath()
 {
-    return GetSpecialFolderPath(CSIDL_STARTUP) / "FooCoin.lnk";
+    return GetSpecialFolderPath(CSIDL_STARTUP) / "CinnamonCoin.lnk";
 }
 
 bool GetStartOnSystemStartup()
 {
-    // check for FooCoin.lnk
+    // check for Bitcoin.lnk
     return boost::filesystem::exists(StartupShortcutPath());
 }
 
@@ -360,7 +354,7 @@ boost::filesystem::path static GetAutostartDir()
 
 boost::filesystem::path static GetAutostartFilePath()
 {
-    return GetAutostartDir() / "foocoin.desktop";
+    return GetAutostartDir() / "CinnamonCoin.desktop";
 }
 
 bool GetStartOnSystemStartup()
@@ -398,10 +392,10 @@ bool SetStartOnSystemStartup(bool fAutoStart)
         boost::filesystem::ofstream optionFile(GetAutostartFilePath(), std::ios_base::out|std::ios_base::trunc);
         if (!optionFile.good())
             return false;
-        // Write a foocoin.desktop file to the autostart directory:
+        // Write a bitcoin.desktop file to the autostart directory:
         optionFile << "[Desktop Entry]\n";
         optionFile << "Type=Application\n";
-        optionFile << "Name=FooCoin\n";
+        optionFile << "Name=CinnamonCoin\n";
         optionFile << "Exec=" << pszExePath << " -min\n";
         optionFile << "Terminal=false\n";
         optionFile << "Hidden=false\n";
@@ -422,10 +416,10 @@ bool SetStartOnSystemStartup(bool fAutoStart) { return false; }
 HelpMessageBox::HelpMessageBox(QWidget *parent) :
     QMessageBox(parent)
 {
-    header = tr("foocoin-qt") + " " + tr("version") + " " +
+    header = tr("CinnamonCoin-Qt") + " " + tr("version") + " " +
         QString::fromStdString(FormatFullVersion()) + "\n\n" +
         tr("Usage:") + "\n" +
-        "  foocoin-qt [" + tr("command-line options") + "]                     " + "\n";
+        "  CinnamonCoin-qt [" + tr("command-line options") + "]                     " + "\n";
 
     coreOptions = QString::fromStdString(HelpMessage());
 
@@ -434,9 +428,9 @@ HelpMessageBox::HelpMessageBox(QWidget *parent) :
         "  -min                   " + tr("Start minimized") + "\n" +
         "  -splash                " + tr("Show splash screen on startup (default: 1)") + "\n";
 
-    setWindowTitle(tr("foocoin-qt"));
+    setWindowTitle(tr("CinnamonCoin-Qt"));
     setTextFormat(Qt::PlainText);
-    // setMinimumWidth is ignored for QMessageBox so put in nonbreaking spaces to make it wider.
+    // setMinimumWidth is ignored for QMessageBox so put in non-breaking spaces to make it wider.
     setText(header + QString(QChar(0x2003)).repeated(50));
     setDetailedText(coreOptions + "\n" + uiOptions);
 }
@@ -445,13 +439,13 @@ void HelpMessageBox::printToConsole()
 {
     // On other operating systems, the expected action is to print the message to the console.
     QString strUsage = header + "\n" + coreOptions + "\n" + uiOptions;
-    fprintf(stderr, "%s", strUsage.toStdString().c_str());
+    fprintf(stdout, "%s", strUsage.toStdString().c_str());
 }
 
 void HelpMessageBox::showOrPrint()
 {
 #if defined(WIN32)
-        // On windows, show a message box, as there is no stderr/stdout in windowed applications
+        // On Windows, show a message box, as there is no stderr/stdout in windowed applications
         exec();
 #else
         // On other operating systems, print help text to console

@@ -7,6 +7,7 @@
 #include "sendcoinsentry.h"
 #include "guiutil.h"
 #include "askpassphrasedialog.h"
+#include "base58.h"
 
 #include <QMessageBox>
 #include <QLocale>
@@ -20,7 +21,7 @@ SendCoinsDialog::SendCoinsDialog(QWidget *parent) :
 {
     ui->setupUi(this);
 
-#ifdef Q_WS_MAC // Icons on push buttons are very uncommon on Mac
+#ifdef Q_OS_MAC // Icons on push buttons are very uncommon on Mac
     ui->addButton->setIcon(QIcon());
     ui->clearButton->setIcon(QIcon());
     ui->sendButton->setIcon(QIcon());
@@ -48,8 +49,8 @@ void SendCoinsDialog::setModel(WalletModel *model)
     }
     if(model && model->getOptionsModel())
     {
-        setBalance(model->getBalance(), model->getUnconfirmedBalance(), model->getImmatureBalance());
-        connect(model, SIGNAL(balanceChanged(qint64, qint64, qint64)), this, SLOT(setBalance(qint64, qint64, qint64)));
+        setBalance(model->getBalance(), model->getStake(), model->getUnconfirmedBalance(), model->getImmatureBalance());
+        connect(model, SIGNAL(balanceChanged(qint64, qint64, qint64, qint64)), this, SLOT(setBalance(qint64, qint64, qint64, qint64)));
         connect(model->getOptionsModel(), SIGNAL(displayUnitChanged(int)), this, SLOT(updateDisplayUnit()));
     }
 }
@@ -66,7 +67,7 @@ void SendCoinsDialog::on_sendButton_clicked()
 
     if(!model)
         return;
-
+	
     for(int i = 0; i < ui->entries->count(); ++i)
     {
         SendCoinsEntry *entry = qobject_cast<SendCoinsEntry*>(ui->entries->itemAt(i)->widget());
@@ -121,7 +122,7 @@ void SendCoinsDialog::on_sendButton_clicked()
     {
     case WalletModel::InvalidAddress:
         QMessageBox::warning(this, tr("Send Coins"),
-            tr("The recepient address is not valid, please recheck."),
+            tr("The recipient address is not valid, please recheck."),
             QMessageBox::Ok, QMessageBox::Ok);
         break;
     case WalletModel::InvalidAmount:
@@ -273,6 +274,9 @@ bool SendCoinsDialog::handleURI(const QString &uri)
     // URI has to be valid
     if (GUIUtil::parseBitcoinURI(uri, &rv))
     {
+        CBitcoinAddress address(rv.address.toStdString());
+        if (!address.IsValid())
+            return false;
         pasteEntry(rv);
         return true;
     }
@@ -280,8 +284,9 @@ bool SendCoinsDialog::handleURI(const QString &uri)
     return false;
 }
 
-void SendCoinsDialog::setBalance(qint64 balance, qint64 unconfirmedBalance, qint64 immatureBalance)
+void SendCoinsDialog::setBalance(qint64 balance, qint64 stake, qint64 unconfirmedBalance, qint64 immatureBalance)
 {
+    Q_UNUSED(stake);
     Q_UNUSED(unconfirmedBalance);
     Q_UNUSED(immatureBalance);
     if(!model || !model->getOptionsModel())

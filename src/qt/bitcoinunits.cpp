@@ -34,9 +34,9 @@ QString BitcoinUnits::name(int unit)
 {
     switch(unit)
     {
-    case BTC: return QString("FOO");
-    case mBTC: return QString("mFOO");
-    case uBTC: return QString::fromUtf8("μFOO");
+    case BTC: return QString("CIN");
+    case mBTC: return QString("mCIN");
+    case uBTC: return QString::fromUtf8("μCIN");
     default: return QString("???");
     }
 }
@@ -45,21 +45,21 @@ QString BitcoinUnits::description(int unit)
 {
     switch(unit)
     {
-    case BTC: return QString("FooCoin");
-    case mBTC: return QString("milliFooCoin (1 / 1,000)");
-    case uBTC: return QString("microFooCoin (1 / 1,000,000)");
+    case BTC: return QString("CinnamonCoins");
+    case mBTC: return QString("Milli-CinnamonCoins (1 / 1,000)");
+    case uBTC: return QString("Micro-CinnamonCoins (1 / 1,000,000)");
     default: return QString("???");
     }
 }
-//a single unit (.00000001) of FooCoin is called a "wander."
+
 qint64 BitcoinUnits::factor(int unit)
 {
     switch(unit)
     {
-    case BTC:  return 100000000;
-    case mBTC: return 100000;
-    case uBTC: return 100;
-    default:   return 100000000;
+    case BTC:  return 1000000;
+    case mBTC: return 1000;
+    case uBTC: return 1;
+    default:   return 1000000;
     }
 }
 
@@ -78,9 +78,9 @@ int BitcoinUnits::decimals(int unit)
 {
     switch(unit)
     {
-    case BTC: return 8;
-    case mBTC: return 5;
-    case uBTC: return 2;
+    case BTC: return 6;
+    case mBTC: return 3;
+    case uBTC: return 0;
     default: return 0;
     }
 }
@@ -99,7 +99,7 @@ QString BitcoinUnits::format(int unit, qint64 n, bool fPlus)
     QString quotient_str = QString::number(quotient);
     QString remainder_str = QString::number(remainder).rightJustified(num_decimals, '0');
 
-    // Right-trim excess 0's after the decimal point
+    // Right-trim excess zeros after the decimal point
     int nTrim = 0;
     for (int i = remainder_str.size()-1; i>=2 && (remainder_str.at(i) == '0'); --i)
         ++nTrim;

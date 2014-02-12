@@ -1,9 +1,9 @@
-Building FooCoin
+Building CinnamonCoin
 
-See doc/readme-qt.rst for instructions on building foocoin-qt,
+See doc/readme-qt.rst for instructions on building CinnamonCoin QT,
 the intended-for-end-users, nice-graphical-interface, reference
-implementation of FooCoin.
+implementation of CinnamonCoin.
 
-See doc/build-*.txt for instructions on building foocoin,
+See doc/build-*.txt for instructions on building CinnamonCoind,
 the intended-for-services, no-graphical-interface, reference
-implementation of FooCoin.
+implementation of CinnamonCoin.
