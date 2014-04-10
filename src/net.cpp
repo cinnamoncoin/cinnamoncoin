@@ -1733,6 +1733,7 @@ bool BindListenPort(const CService &addrBind, string& strError)
  #else
         setsockopt(hListenSocket, IPPROTO_IPV6, IPV6_V6ONLY, (void*)&nOne, sizeof(int));
 #endif
+#endif
 #ifdef WIN32
         int nProtLevel = 10 /* PROTECTION_LEVEL_UNRESTRICTED */;
         int nParameterId = 23 /* IPV6_PROTECTION_LEVEl */;
