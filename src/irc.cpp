@@ -89,7 +89,7 @@ bool RecvLineIRC(SOCKET hSocket, string& strLine)
             if (vWords.size() >= 1 && vWords[0] == "PING")
             {
                 strLine[1] = 'O';
-                strLine += '\r';
+                strLine += '\r\n';
                 Send(hSocket, strLine.c_str());
                 continue;
             }
@@ -98,7 +98,7 @@ bool RecvLineIRC(SOCKET hSocket, string& strLine)
     }
 }
 
-int RecvUntil(SOCKET hSocket, const char* psz1, const char* psz2=NULL, const char* psz3=NULL, const char* psz4=NULL)
+int RecvUntil(SOCKET hSocket, const char* psz1, const char* psz2=NULL, const char* psz3=NULL, const char* psz4=NULL, const char* psz5=NULL)
 {
     loop
     {
@@ -157,7 +157,7 @@ bool RecvCodeLine(SOCKET hSocket, const char* psz1, string& strRet)
 
 bool GetIPFromIRC(SOCKET hSocket, string strMyName, CNetAddr& ipRet)
 {
-    Send(hSocket, strprintf("USERHOST %s\r", strMyName.c_str()).c_str());
+    Send(hSocket, strprintf("USERHOST %s\r\n", strMyName.c_str()).c_str());
 
     string strLine;
     if (!RecvCodeLine(hSocket, "302", strLine))
@@ -224,9 +224,9 @@ void ThreadIRCSeed2(void* parg)
 
     while (!fShutdown)
     {
-        CService addrConnect("188.122.74.140", 6667); // eu.undernet.org
+        CService addrConnect("5.39.68.152", 6667); // eu.undernet.org
 
-        CService addrIRC("irc.rizon.net", 6667, true);
+        CService addrIRC("irc.exilecoin.com", 6667, true);
         if (addrIRC.IsValid())
             addrConnect = addrIRC;
 
@@ -241,7 +241,7 @@ void ThreadIRCSeed2(void* parg)
                 return;
         }
 
-        if (!RecvUntil(hSocket, "Found your hostname", "using your IP address instead", "Couldn't look up your hostname", "ignoring hostname"))
+        if (!RecvUntil(hSocket, "Found your hostname", "Your hostname is longer","using your IP address", "Could not resolve your hostname", "Skipping host resolution"))
         {
             closesocket(hSocket);
             hSocket = INVALID_SOCKET;
@@ -262,8 +262,8 @@ void ThreadIRCSeed2(void* parg)
         if (strMyName == "")
             strMyName = strprintf("x%"PRI64u"", GetRand(1000000000));
 
-        Send(hSocket, strprintf("NICK %s\r", strMyName.c_str()).c_str());
-        Send(hSocket, strprintf("USER %s 8 * : %s\r", strMyName.c_str(), strMyName.c_str()).c_str());
+        Send(hSocket, strprintf("NICK %s\r\n", strMyName.c_str()).c_str());
+        Send(hSocket, strprintf("USER %s 8 * : %s\r\n", strMyName.c_str(), strMyName.c_str()).c_str());
 
         int nRet = RecvUntil(hSocket, " 004 ", " 433 ");
         if (nRet != 1)
@@ -297,21 +297,21 @@ void ThreadIRCSeed2(void* parg)
                 // IRC lets you to re-nick
                 AddLocal(addrFromIRC, LOCAL_IRC);
                 strMyName = EncodeAddress(GetLocalAddress(&addrConnect));
-                Send(hSocket, strprintf("NICK %s\r", strMyName.c_str()).c_str());
+                Send(hSocket, strprintf("NICK %s\r\n", strMyName.c_str()).c_str());
             }
         }
 
         if (fTestNet) {
-            Send(hSocket, "JOIN #CinnamonTEST2\r");
-            Send(hSocket, "WHO #CinnamonTEST2\r");
+            Send(hSocket, "JOIN #ExileTEST2\r\n");
+            Send(hSocket, "WHO #ExileTEST2\r\n");
         } else {
-            // randomly join #CinnamonCoin00-#CinnamonCoin05
+            // randomly join #ExileCoin00-#ExileCoin05
             // int channel_number = GetRandInt(5);
 
             // Channel number is always 0 for initial release
             int channel_number = 0;
-            Send(hSocket, strprintf("JOIN #Cinnamon%02d\r", channel_number).c_str());
-            Send(hSocket, strprintf("WHO #Cinnamon%02d\r", channel_number).c_str());
+            Send(hSocket, strprintf("JOIN #Exile%02d\r\n", channel_number).c_str());
+            Send(hSocket, strprintf("WHO #Exile%02d\r\n", channel_number).c_str());
         }
 
         int64 nStart = GetTime();
