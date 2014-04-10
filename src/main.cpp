@@ -1011,7 +1011,7 @@ const CBlockIndex* GetLastBlockIndex(const CBlockIndex* pindex, bool fProofOfSta
     return pindex;
 }
 
-unsigned int GetNextTargetRequired(const CBlockIndex* pindexLast, bool fProofOfStake) 
+unsigned int GetNextTargetRequired_V1(const CBlockIndex* pindexLast, bool fProofOfStake)
 {
     CBigNum bnTargetLimit = bnProofOfWorkLimit;
 
@@ -1046,6 +1046,120 @@ unsigned int GetNextTargetRequired(const CBlockIndex* pindexLast, bool fProofOfS
         bnNew = bnTargetLimit;
 
     return bnNew.GetCompact();
+}
+
+unsigned int static KimotoGravityWell(const CBlockIndex* pindexLast, uint64 TargetBlocksSpacingSeconds, uint64 PastBlocksMin, uint64 PastBlocksMax, bool fProofOfStake) {
+	/* current difficulty formula, megacoin - kimoto gravity well */
+	const CBlockIndex	*BlockLastSolved			= pindexLast;
+	const CBlockIndex	*BlockReading				= pindexLast;
+	uint64				PastBlocksMass				= 0;
+	int64				PastRateActualSeconds		= 0;
+	int64				PastRateTargetSeconds		= 0;
+	double				PastRateAdjustmentRatio		= double(1);
+	CBigNum				PastDifficultyAverage;
+	CBigNum				PastDifficultyAveragePrev;
+	double				EventHorizonDeviation;
+	double				EventHorizonDeviationFast;
+	double				EventHorizonDeviationSlow;
+	
+	if(fProofOfStake)
+	{
+		// Proof-of-Stake blocks has own target limit since nVersion=3 supermajority on mainNet and always on testNet
+		CBigNum bnTargetLimit = bnProofOfStakeLimit;
+		const CBlockIndex* pindexPrev = GetLastBlockIndex(pindexLast, fProofOfStake);
+		const CBlockIndex* pindexPrevPrev = GetLastBlockIndex(pindexPrev->pprev, fProofOfStake);
+		
+		int64 nActualSpacing = pindexLast->GetBlockTime() - pindexPrevPrev->GetBlockTime();
+		
+		// ppcoin: target change every block
+		// ppcoin: retarget with exponential moving toward target spacing
+		CBigNum bnNew;
+		bnNew.SetCompact(pindexLast->nBits);
+		int64 nTargetSpacing = min(nTargetSpacingWorkMax, (int64) nStakeTargetSpacing * (1 + pindexLast->nHeight - pindexLast->nHeight));
+		int64 nInterval = nTargetTimespan / nTargetSpacing;
+		nTargetSpacing = nTargetSpacing + 100;
+		bnNew *= ((nInterval - 1) * nTargetSpacing + nActualSpacing + nActualSpacing);
+		bnNew /= ((nInterval + 1) * nTargetSpacing);
+		
+		if (bnNew > bnTargetLimit)
+		{
+		bnNew = bnTargetLimit;
+		}
+		if(fDebug)
+		{
+			/// debug print
+			printf("Difficulty Retarget PoS\n");
+			printf("Target:  %08x  %s\n", bnNew.GetCompact(), bnNew.getuint256().ToString().c_str());
+		}
+	
+		return bnNew.GetCompact();
+	}
+
+    if (BlockLastSolved == NULL || BlockLastSolved->nHeight == 0 || (uint64)BlockLastSolved->nHeight < PastBlocksMin) { return bnProofOfWorkLimit.GetCompact(); }
+
+	for (unsigned int i = 1; BlockReading && BlockReading->nHeight > 0; i++) {
+		if (PastBlocksMax > 0 && i > PastBlocksMax) { break; }
+		PastBlocksMass++;
+
+		if (i == 1)	{ PastDifficultyAverage.SetCompact(BlockReading->nBits); }
+		else		{ PastDifficultyAverage = ((CBigNum().SetCompact(BlockReading->nBits) - PastDifficultyAveragePrev) / i) + PastDifficultyAveragePrev; }
+		PastDifficultyAveragePrev = PastDifficultyAverage;
+
+		PastRateActualSeconds			= BlockLastSolved->GetBlockTime() - BlockReading->GetBlockTime();
+		PastRateTargetSeconds			= TargetBlocksSpacingSeconds * PastBlocksMass;
+		PastRateAdjustmentRatio			= double(1);
+		if (PastRateActualSeconds < 0) { PastRateActualSeconds = 0; }
+		if (PastRateActualSeconds != 0 && PastRateTargetSeconds != 0) {
+		PastRateAdjustmentRatio			= double(PastRateTargetSeconds) / double(PastRateActualSeconds);
+		}
+		EventHorizonDeviation			= 1 + (0.7084 * pow((double(PastBlocksMass)/double(144)), -1.228));
+		EventHorizonDeviationFast		= EventHorizonDeviation;
+		EventHorizonDeviationSlow		= 1 / EventHorizonDeviation;
+
+		if (PastBlocksMass >= PastBlocksMin) {
+			if ((PastRateAdjustmentRatio <= EventHorizonDeviationSlow) || (PastRateAdjustmentRatio >= EventHorizonDeviationFast)) { assert(BlockReading); break; }
+		}
+		if (BlockReading->pprev == NULL) { assert(BlockReading); break; }
+		BlockReading = BlockReading->pprev;
+	}
+
+	CBigNum bnNew(PastDifficultyAverage);
+	if (PastRateActualSeconds != 0 && PastRateTargetSeconds != 0) {
+		bnNew *= PastRateActualSeconds;
+		bnNew /= PastRateTargetSeconds;
+	}
+	if (bnNew > bnProofOfWorkLimit) { bnNew = bnProofOfWorkLimit; }
+	if(fDebug)
+	{
+		/// debug print
+		printf("Difficulty Retarget - Kimoto Gravity Well PoW\n");
+		printf("PastRateAdjustmentRatio = %g\n", PastRateAdjustmentRatio);
+		printf("Before: %08x  %s\n", BlockLastSolved->nBits, CBigNum().SetCompact(BlockLastSolved->nBits).getuint256().ToString().c_str());
+		printf("After:  %08x  %s\n", bnNew.GetCompact(), bnNew.getuint256().ToString().c_str());
+	}
+
+	return bnNew.GetCompact();
+}
+
+unsigned int GetNextTargetRequired_V2(const CBlockIndex* pindexLast, bool fProofOfStake)
+{
+	static const int64	BlocksTargetSpacing			= 5 * 60; // 2.5 minutes
+	unsigned int		TimeDaySeconds				= 60 * 60 * 24;
+	int64				PastSecondsMin				= TimeDaySeconds * 0.25;
+	int64				PastSecondsMax				= TimeDaySeconds * 7;
+	uint64				PastBlocksMin				= PastSecondsMin / BlocksTargetSpacing;
+	uint64				PastBlocksMax				= PastSecondsMax / BlocksTargetSpacing;	
+
+	return KimotoGravityWell(pindexLast, BlocksTargetSpacing, PastBlocksMin, PastBlocksMax, fProofOfStake);
+}
+
+unsigned int GetNextTargetRequired(const CBlockIndex* pindexLast, bool fProofOfStake) 
+{
+	int DiffMode = 1;
+	if (pindexLast->nHeight+1 >= 24320) { DiffMode = 2; }
+	if (DiffMode == 1) { return GetNextTargetRequired_V1(pindexLast, fProofOfStake); }
+	else if	(DiffMode == 2) { return GetNextTargetRequired_V2(pindexLast, fProofOfStake); }
+	return GetNextTargetRequired_V2(pindexLast, fProofOfStake);
 }
 
 bool CheckProofOfWork(uint256 hash, unsigned int nBits)
@@ -1469,8 +1583,8 @@ bool CBlock::ConnectBlock(CTxDB& txdb, CBlockIndex* pindex, bool fJustCheck)
     // Now that the whole chain is irreversibly beyond that time it is applied to all blocks except the
     // two in the chain that violate it. This prevents exploiting the issue against nodes in their
     // initial block download.
-    bool fEnforceBIP30 = true; // Always active in CinnamonCoin
-    bool fStrictPayToScriptHash = true; // Always active in CinnamonCoin
+    bool fEnforceBIP30 = true; // Always active in ExileCoin
+    bool fStrictPayToScriptHash = true; // Always active in ExileCoin
 
     //// issue here: it doesn't know the version
     unsigned int nTxPos;
@@ -2411,7 +2525,7 @@ bool CheckDiskSpace(uint64 nAdditionalBytes)
         string strMessage = _("Warning: Disk space is low!");
         strMiscWarning = strMessage;
         printf("*** %s\n", strMessage.c_str());
-        uiInterface.ThreadSafeMessageBox(strMessage, "CinnamonCoin", CClientUIInterface::OK | CClientUIInterface::ICON_EXCLAMATION | CClientUIInterface::MODAL);
+        uiInterface.ThreadSafeMessageBox(strMessage, "ExileCoin", CClientUIInterface::OK | CClientUIInterface::ICON_EXCLAMATION | CClientUIInterface::MODAL);
         StartShutdown();
         return false;
     }

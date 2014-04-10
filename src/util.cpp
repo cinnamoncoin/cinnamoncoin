@@ -1006,7 +1006,7 @@ static std::string FormatException(std::exception* pex, const char* pszThread)
     char pszModule[MAX_PATH] = "";
     GetModuleFileNameA(NULL, pszModule, sizeof(pszModule));
 #else
-    const char* pszModule = "CinnamonCoin";
+    const char* pszModule = "ExileCoin";
 #endif
     if (pex)
         return strprintf(
@@ -1055,13 +1055,13 @@ void PrintExceptionContinue(std::exception* pex, const char* pszThread)
 boost::filesystem::path GetDefaultDataDir()
 {
     namespace fs = boost::filesystem;
-    // Windows < Vista: C:\Documents and Settings\Username\Application Data\CinnamonCoin
-    // Windows >= Vista: C:\Users\Username\AppData\Roaming\CinnamonCoin
-    // Mac: ~/Library/Application Support/CinnamonCoin
-    // Unix: ~/.CinnamonCoin
+    // Windows < Vista: C:\Documents and Settings\Username\Application Data\ExileCoin
+    // Windows >= Vista: C:\Users\Username\AppData\Roaming\ExileCoin
+    // Mac: ~/Library/Application Support/ExileCoin
+    // Unix: ~/.ExileCoin
 #ifdef WIN32
     // Windows
-    return GetSpecialFolderPath(CSIDL_APPDATA) / "CinnamonCoin";
+    return GetSpecialFolderPath(CSIDL_APPDATA) / "ExileCoin";
 #else
     fs::path pathRet;
     char* pszHome = getenv("HOME");
@@ -1073,10 +1073,10 @@ boost::filesystem::path GetDefaultDataDir()
     // Mac
     pathRet /= "Library/Application Support";
     fs::create_directory(pathRet);
-    return pathRet / "CinnamonCoin";
+    return pathRet / "ExileCoin";
 #else
     // Unix
-    return pathRet / ".CinnamonCoin";
+    return pathRet / ".ExileCoin";
 #endif
 #endif
 }
@@ -1118,7 +1118,7 @@ const boost::filesystem::path &GetDataDir(bool fNetSpecific)
 
 boost::filesystem::path GetConfigFile()
 {
-    boost::filesystem::path pathConfigFile(GetArg("-conf", "CinnamonCoin.conf"));
+    boost::filesystem::path pathConfigFile(GetArg("-conf", "ExileCoin.conf"));
     if (!pathConfigFile.is_complete()) pathConfigFile = GetDataDir(false) / pathConfigFile;
     return pathConfigFile;
 }
@@ -1149,7 +1149,7 @@ void ReadConfigFile(map<string, string>& mapSettingsRet,
 
 boost::filesystem::path GetPidFile()
 {
-    boost::filesystem::path pathPidFile(GetArg("-pid", "CinnamonCoind.pid"));
+    boost::filesystem::path pathPidFile(GetArg("-pid", "ExileCoind.pid"));
     if (!pathPidFile.is_complete()) pathPidFile = GetDataDir() / pathPidFile;
     return pathPidFile;
 }
@@ -1289,10 +1289,10 @@ void AddTimeData(const CNetAddr& ip, int64 nTime)
                 if (!fMatch)
                 {
                     fDone = true;
-                    string strMessage = _("Warning: Please check that your computer's date and time are correct! If your clock is wrong CinnamonCoin will not work properly.");
+                    string strMessage = _("Warning: Please check that your computer's date and time are correct! If your clock is wrong ExileCoin will not work properly.");
                     strMiscWarning = strMessage;
                     printf("*** %s\n", strMessage.c_str());
-                    uiInterface.ThreadSafeMessageBox(strMessage+" ", string("CinnamonCoin"), CClientUIInterface::OK | CClientUIInterface::ICON_EXCLAMATION);
+                    uiInterface.ThreadSafeMessageBox(strMessage+" ", string("ExileCoin"), CClientUIInterface::OK | CClientUIInterface::ICON_EXCLAMATION);
                 }
             }
         }
